@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 1. Database
   db:
     image: postgres:15
     container_name: proctor_db
@@ -16,14 +15,12 @@ services:
     networks:
       - proctor-net
 
-  # 2. Backend (Java)
   backend:
     build: ./backend
     container_name: proctor_backend
     ports:
       - "8080:8080"
     environment:
-      # Note: We use 'db' because inside Docker, that is the hostname
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/proctordb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
@@ -33,7 +30,6 @@ services:
     networks:
       - proctor-net
 
-  # 3. Frontend (React)
   frontend:
     build: ./frontend
     container_name: proctor_frontend
@@ -47,50 +43,6 @@ services:
 volumes:
   postgres_data:
 
-networks:
+networks:   # <--- THIS WORD MUST TOUCH THE LEFT EDGE (NO SPACES BEFORE IT)
   proctor-net:
-    driver: bridgeversion: '3.8'
-
-services:
-  # 1. The Database
-  db:
-    image: postgres:15
-    container_name: proctor_db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: proctordb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    network_mode: host
-
-  # 2. The Java Backend
-  backend:
-    build: ./backend
-    container_name: proctor_backend
-    ports:
-      - "8080:8080"
-    environment:
-      # This connects Java to the 'db' service above
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/proctordb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: password
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-    depends_on:
-      - db
-    network_mode: host
-
-  # 3. The React Frontend
-  frontend:
-    build: ./frontend
-    container_name: proctor_frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    network_mode: host
-
-volumes:
-  postgres_data:
+    driver: bridge
