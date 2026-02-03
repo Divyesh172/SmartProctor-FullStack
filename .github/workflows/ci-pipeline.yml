@@ -1,4 +1,51 @@
-name: Smart Proctor CI
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: proctor_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: proctordb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - proctor-net
+
+  backend:
+    build: ./backend
+    container_name: proctor_backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/proctordb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - db
+    networks:
+      - proctor-net
+
+  frontend:
+    build: ./frontend
+    container_name: proctor_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - proctor-net
+
+volumes:
+  postgres_data:
+
+networks:
+  proctor-net:
+    driver: bridgename: Smart Proctor CI
 
 on:
   push:
