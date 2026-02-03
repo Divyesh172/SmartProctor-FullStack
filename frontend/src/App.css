@@ -1,0 +1,131 @@
+/* 1. Deep Tech Background */
+body {
+background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #2d1b69);
+background-size: 400% 400%;
+animation: gradientBG 15s ease infinite;
+min-height: 100vh;
+display: flex;
+align-items: center;
+justify-content: center;
+font-family: 'Poppins', sans-serif;
+color: white;
+}
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 2. Glassmorphism Card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05); /* Very transparent white */
+  backdrop-filter: blur(10px); /* The "Frosted" blur */
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle white border */
+  border-radius: 24px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* 3. Modern Inputs */
+.form-control {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+.form-control:focus {
+  background: rgba(0, 0, 0, 0.4) !important;
+  border-color: #4f46e5 !important; /* Indigo Focus */
+  box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25) !important;
+  color: white !important;
+}
+
+/* Floating Label Text Color fix */
+.form-floating > label {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* 4. The "Laser" Button */
+.btn-primary {
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: 0.5s;
+  z-index: -1;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
+}
+
+/* 5. Smooth Fade In */
+.fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+select.form-control {
+  background-color: rgba(0, 0, 0, 0.2) !important; /* Dark Glass */
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+
+  /* Remove default arrow so we can add our own or style it */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  /* Add a custom white arrow */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  background-size: 16px 12px !important;
+}
+
+/* 2. The Focus State (Glow) */
+select.form-control:focus {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25) !important;
+}
+
+/* 3. The Dropdown List Options (When you click it) */
+/* Note: We cannot use "Glass" here because browsers require solid colors for options */
+select.form-control option {
+  background-color: #1e293b; /* Deep Dark Blue */
+  color: white;
+  padding: 10px;
+}
+
+/* 4. Fix Floating Label Color for Select */
+.form-floating > select {
+  padding-top: 1.625rem;
+  padding-bottom: 0.625rem;
+}

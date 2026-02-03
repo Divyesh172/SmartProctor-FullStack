@@ -1,0 +1,21 @@
+# --- DEPENDENCIES ---
+node_modules/
+dist/
+.venv/
+.env
+__pycache__/
+*.class
+
+# --- JAVA ---
+target/
+.mvn/
+.settings/
+.classpath
+.project
+*.log
+
+# --- IDEs ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
