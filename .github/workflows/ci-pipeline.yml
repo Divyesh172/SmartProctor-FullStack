@@ -43,4 +43,4 @@ jobs:
 
     # 6. Verify Docker Builds (Make sure containers work)
     - name: Build Docker Images
-      run: docker-compose build
+      run: docker compose build
