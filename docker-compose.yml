@@ -1,48 +1,49 @@
 version: '3.8'
 
 services:
-  db:
+  # 1. DATABASE
+  proctor_db:
     image: postgres:15
     container_name: proctor_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: proctordb
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - proctor-net
+    network_mode: "host"
+    restart: always
 
+  # 2. JAVA BACKEND (Uses your manually built image)
   backend:
-    build: ./backend
+    image: smartproctor-fullstack-backend
     container_name: proctor_backend
-    ports:
-      - "8080:8080"
+    depends_on:
+      - proctor_db
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/proctordb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/proctordb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-    depends_on:
-      - db
-    networks:
-      - proctor-net
+    network_mode: "host"
+    restart: on-failure
 
+  # 3. FRONTEND (Uses your manually built image)
   frontend:
-    build: ./frontend
+    image: smartproctor-fullstack-frontend
     container_name: proctor_frontend
-    ports:
-      - "80:80"
+    network_mode: "host"
+    stdin_open: true
+    tty: true
+
+  # 4. GO ENGINE (Uses your manually built image)
+  go-engine:
+    image: smartproctor-go
+    container_name: proctor_go
     depends_on:
       - backend
-    networks:
-      - proctor-net
+    network_mode: "host"
+    restart: always
 
 volumes:
   postgres_data:
-
-networks:   # <--- THIS WORD MUST TOUCH THE LEFT EDGE (NO SPACES BEFORE IT)
-  proctor-net:
-    driver: bridge

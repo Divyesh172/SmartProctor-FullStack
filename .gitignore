@@ -1,21 +1,28 @@
-# --- DEPENDENCIES ---
+# --- Java / Spring Boot ---
+target/
+*.class
+.mvn/
+mvnw
+mvnw.cmd
+.idea/
+*.iml
+
+# --- Node / React ---
 node_modules/
 dist/
-.venv/
+build/
 .env
+
+# --- Python ---
 __pycache__/
-*.class
+*.pyc
+venv/
+.pytest_cache/
 
-# --- JAVA ---
-target/
-.mvn/
-.settings/
-.classpath
-.project
-*.log
+# --- Go ---
+go-engine/main  # Ignore the compiled binary
+go-engine/go.sum # (Optional: usually kept, but safe to ignore if re-running tidy)
 
-# --- IDEs ---
-.idea/
-.vscode/
-*.swp
+# --- Docker / OS ---
 .DS_Store
+Thumbs.db

@@ -1,83 +1,41 @@
 package com.smartproctor.backend.controller;
 
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.smartproctor.backend.dto.CreateExamRequest;
-import com.smartproctor.backend.dto.RegisterStudentRequest;
-import com.smartproctor.backend.dto.StudentResponse;
+import com.smartproctor.backend.dto.CheatReportDTO;
 import com.smartproctor.backend.model.ExamSession;
-import com.smartproctor.backend.model.Student;
 import com.smartproctor.backend.service.ExamService;
-import com.smartproctor.backend.service.StudentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/exam")
-@Slf4j
+@CrossOrigin(origins = "*") // Allows React and Go to talk to this
 public class ExamController {
-	private final StudentService studentService;
-	private final ExamService examService;
-	
-	public ExamController(StudentService studentService, ExamService examService) {
-		this.studentService = studentService;
-		this.examService = examService;
-	}
-	
-	@PostMapping("/create")
-	public ResponseEntity<String> createExam(@Valid @RequestBody CreateExamRequest request){
-		ExamSession session = examService.createSession(request.getSubject(), request.getExamCode());
-		return ResponseEntity.ok("Exam Created: " + session.getSubjectName());
-	}
-	
-	@PostMapping("/register")
-		public ResponseEntity<String> register(@Valid @RequestBody RegisterStudentRequest request){
-				Student savedStudent = studentService.registerStudent(
-						request.getName(), 
-						request.getEmail(), 
-						request.getExamCode()
-				);
-				return ResponseEntity.ok("Registered ID: " + savedStudent.getId()); 
-	}
-	
-	// URL: POST http://localhost:8080/api/exam/report-cheat
-	@PostMapping("/report-cheat")
-	public ResponseEntity<String> reportCheat(@RequestParam Long studentId){
-		log.info("CHEAT_REPORT: Received signal for ID {}", studentId);
-		
-		int newStrikes = studentService.addStrike(studentId);
-		
-		if(newStrikes >= 3) {
-			return ResponseEntity.status(403).body("BAN: Exam Terminated.");
-		}
-		
-		return ResponseEntity.ok("WARNING: Strike added. Total: " + newStrikes);
-	}
-	
-	@GetMapping("/list-students")
-	public ResponseEntity<List<StudentResponse>> getStudents(@RequestParam String examCode){
-		List<StudentResponse> students = studentService.getStudentsByExam(examCode);
-		return ResponseEntity.ok(students);
-	}
-	
-	@GetMapping("/status")
-	public ResponseEntity<StudentResponse> getStudentStatus(@RequestParam Long studentId){
-		StudentResponse status = studentService.getStudentStatus(studentId);
-		return ResponseEntity.ok(status);
-	}
-	
-	@GetMapping("/active")
-	public ResponseEntity<List<Map<String, String>>> getActiveExams(){
-		return ResponseEntity.ok(studentService.getActiveExams());
-	}
+
+    @Autowired
+    private ExamService examService;
+
+    // --- EXISTING ENDPOINTS ---
+    @PostMapping("/create")
+    public ResponseEntity<ExamSession> createExam(@RequestBody ExamSession exam) {
+        return ResponseEntity.ok(examService.createExam(exam));
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<ExamSession>> getActiveExams() {
+        return ResponseEntity.ok(examService.getActiveExams());
+    }
+
+    // --- NEW ENDPOINT FOR GO ---
+    @PostMapping("/report-cheat")
+    public ResponseEntity<String> reportCheat(@RequestBody CheatReportDTO report) {
+        if (report.getSession_id() == null || report.getReason() == null) {
+            return ResponseEntity.badRequest().body("Invalid Report Data");
+        }
+        
+        examService.logCheatIncident(report);
+        return ResponseEntity.ok("Incident Logged Successfully");
+    }
 }
