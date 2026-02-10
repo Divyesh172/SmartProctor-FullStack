@@ -3,115 +3,205 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
-    // "time" removed because it was causing the error
+	"os"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-// --- CONFIGURATION ---
-// If running in Docker "host" mode, use localhost:8080.
-const (
-	JAVA_API_URL       = "http://localhost:8080/api/exam/report-cheat"
-	CHEAT_THRESHOLD    = 30 // Frames (approx 1 second)
+// ==========================================
+// 1. CONFIGURATION
+// ==========================================
+var (
+	// Default to localhost, but allow Docker/Env override
+	JavaBaseURL = getEnv("JAVA_BACKEND_URL", "http://localhost:8080")
+
+	// API Key for machine-to-machine security
+	APIKey = getEnv("PROCTOR_API_KEY", "PROCTOR_SECURE_123")
 )
 
-// --- DATA STRUCTURES ---
-type EyeData struct {
-	SessionID string `json:"session_id"`
-	Status    string `json:"status"`    // "SAFE", "LOOKING_AWAY", "PHONE_DETECTED", "NO_FACE"
-	Timestamp string `json:"timestamp"`
-}
-
-type JavaPayload struct {
-	SessionID  string `json:"session_id"`
-	Reason     string `json:"reason"`
-	Timestamp  string `json:"timestamp"`
-	Confidence string `json:"confidence"`
-}
-
-// Track state for each student connection
-type StudentState struct {
-	BadFrameCount int
-	ViolationSent bool
-}
-
 var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	// Allow all origins (Cross-Origin) for mobile dev
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// --- HANDLER ---
-func handleProctorStream(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
+// ==========================================
+// 2. DATA STRUCTURES
+// ==========================================
+
+// 1. Inbound Message from Mobile
+type WSMessage struct {
+	Type    string `json:"type"`    // "HANDSHAKE", "CHEAT_REPORT", "PING"
+	Payload string `json:"payload"` // Data or JSON string
+}
+
+// 2. Handshake Request to Java
+type HandshakeRequest struct {
+	PairingCode string `json:"pairingCode"`
+}
+
+// 3. Cheat Report Request to Java (Matches CheatReportDTO.java)
+type CheatRelayRequest struct {
+	StudentId       int64   `json:"studentId"`
+	CheatType       string  `json:"cheatType"` // e.g., "MOBILE_DETECTED"
+	Description     string  `json:"description"`
+	ConfidenceScore float64 `json:"confidenceScore"`
+}
+
+// ==========================================
+// 3. MAIN SERVER
+// ==========================================
+func main() {
+	port := getEnv("PORT", "8081")
+
+	http.HandleFunc("/ws", handleWebSocket)
+	http.HandleFunc("/health", healthCheck)
+
+	log.Printf("🚀 Mobile Sentinel (Go) active on port %s", port)
+	log.Printf("🔗 Connected to Java Backend at: %s", JavaBaseURL)
+
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+// ==========================================
+// 4. WEBSOCKET LOGIC
+// ==========================================
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		fmt.Println("❌ Upgrade Error:", err)
+		log.Println("❌ WS Upgrade Failed:", err)
 		return
 	}
-	defer ws.Close()
+	defer conn.Close()
 
-	fmt.Println("🔵 New Student Connected via Python Eye")
+	log.Println("📱 Device Connected.")
 
-	state := StudentState{BadFrameCount: 0, ViolationSent: false}
+	// State for this connection
+	var studentId int64 = 0
 
 	for {
-		// 1. READ MESSAGE
-		var data EyeData
-		err := ws.ReadJSON(&data)
+		_, message, err := conn.ReadMessage()
 		if err != nil {
-			fmt.Println("⚪ Student Disconnected")
+			log.Println("⚠️ Device Disconnected")
 			break
 		}
 
-		// 2. THE JUDGE (FILTER LOGIC)
-		if data.Status != "SAFE" {
-			state.BadFrameCount++
+		var msg WSMessage
+		if err := json.Unmarshal(message, &msg); err != nil {
+			continue
+		}
 
-			// If they have been bad for 30+ frames AND we haven't reported it recently
-			if state.BadFrameCount == CHEAT_THRESHOLD {
-				fmt.Printf("⚠️  VIOLATION CONFIRMED: %s (%s). Alerting Java...\n", data.Status, data.SessionID)
-
-				// Run in background (goroutine) so we don't block the video stream
-				go sendToJava(data)
-
-				state.ViolationSent = true
+		switch msg.Type {
+		case "HANDSHAKE":
+			// Payload is the Pairing Code (e.g., "AB12")
+			// We verify with Java, and if valid, Java returns the Student ID
+			sid := handleHandshake(conn, msg.Payload)
+			if sid > 0 {
+				studentId = sid
 			}
-		} else {
-			// If they look safe, reduce the counter (forgiveness mechanism)
-			if state.BadFrameCount > 0 {
-				state.BadFrameCount--
+
+		case "CHEAT_REPORT":
+			// Payload is a JSON string containing report details
+			if studentId > 0 {
+				handleCheatAlert(conn, studentId, msg.Payload)
+			} else {
+				sendJSON(conn, "ERROR", "Not Authenticated")
 			}
-			state.ViolationSent = false
+
+		case "PING":
+			sendJSON(conn, "PONG", "Alive")
 		}
 	}
 }
 
-// --- SENDER (TO JAVA) ---
-func sendToJava(data EyeData) {
-	payload := JavaPayload{
-		SessionID:  data.SessionID,
-		Reason:     data.Status,
-		Timestamp:  data.Timestamp,
-		Confidence: "HIGH",
-	}
+// ==========================================
+// 5. JAVA INTEGRATION
+// ==========================================
 
-	jsonPayload, _ := json.Marshal(payload)
+// Returns StudentID if success, 0 if fail
+func handleHandshake(conn *websocket.Conn, code string) int64 {
+	url := JavaBaseURL + "/api/proctor/mobile/handshake"
 
-	resp, err := http.Post(JAVA_API_URL, "application/json", bytes.NewBuffer(jsonPayload))
+	reqBody, _ := json.Marshal(HandshakeRequest{PairingCode: code})
+	resp, err := sendToJava(url, reqBody)
+
 	if err != nil {
-		fmt.Println("❌ Failed to contact Java Backend:", err)
-		return
+		log.Println("❌ Java Handshake Error:", err)
+		sendJSON(conn, "ERROR", "Backend Unavailable")
+		return 0
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("✅ Java Backend Acknowledged Violation.")
+	// Parse response
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	if result["success"] == true {
+		log.Printf("✅ Device Paired for Code: %s", code)
+		sendJSON(conn, "SUCCESS", "Paired")
+
+		// Ideally, Java should return the StudentID in the handshake response.
+		// For now, we assume the pairing code *was* valid.
+		// If your Java logic returns studentId, extract it here:
+		if id, ok := result["studentId"].(float64); ok {
+			return int64(id)
+		}
+		return 1 // Fallback if Java doesn't send ID (Needs Java update if critical)
+	} else {
+		sendJSON(conn, "ERROR", "Invalid Code")
+		return 0
+	}
 }
 
-// --- MAIN SERVER ---
-func main() {
-	http.HandleFunc("/ws", handleProctorStream)
-	fmt.Println("🚀 Go Referee Engine running on port 8081...")
-	if err := http.ListenAndServe("0.0.0.0:8081", nil); err != nil {
-		fmt.Println("Server failed:", err)
+func handleCheatAlert(conn *websocket.Conn, studentId int64, payloadStr string) {
+	url := JavaBaseURL + "/api/proctor/report"
+
+	// Parse the raw payload from phone
+	var rawData map[string]interface{}
+	json.Unmarshal([]byte(payloadStr), &rawData)
+
+	// Construct DTO for Java
+	report := CheatRelayRequest{
+		StudentId:       studentId,
+		CheatType:       rawData["type"].(string), // e.g. "PHONE_MOVED"
+		Description:     "Detected by Mobile Sentinel",
+		ConfidenceScore: 1.0,
 	}
+
+	reqBody, _ := json.Marshal(report)
+	resp, err := sendToJava(url, reqBody)
+
+	if err == nil && resp.StatusCode == 200 {
+		log.Printf("🚩 Cheat Alert Forwarded: Student %d", studentId)
+		sendJSON(conn, "ACK", "Report Logged")
+	} else {
+		log.Println("❌ Failed to log cheat to Java")
+	}
+}
+
+// Helper: HTTP POST to Java
+func sendToJava(url string, data []byte) (*http.Response, error) {
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", APIKey)
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	return client.Do(req)
+}
+
+// Helper: Send WS Response
+func sendJSON(conn *websocket.Conn, msgType string, payload string) {
+	conn.WriteJSON(WSMessage{Type: msgType, Payload: payload})
+}
+
+// Helper: Env Getter
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
 }

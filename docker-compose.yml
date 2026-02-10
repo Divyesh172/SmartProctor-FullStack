@@ -14,9 +14,10 @@ services:
     network_mode: "host"
     restart: always
 
-  # 2. JAVA BACKEND (Uses your manually built image)
+  # 2. JAVA BACKEND
   backend:
     image: smartproctor-fullstack-backend
+    build: ./backend  # <--- THIS WAS MISSING
     container_name: proctor_backend
     depends_on:
       - proctor_db
@@ -28,17 +29,19 @@ services:
     network_mode: "host"
     restart: on-failure
 
-  # 3. FRONTEND (Uses your manually built image)
+  # 3. FRONTEND
   frontend:
     image: smartproctor-fullstack-frontend
+    build: ./frontend  # <--- THIS WAS MISSING
     container_name: proctor_frontend
     network_mode: "host"
     stdin_open: true
     tty: true
 
-  # 4. GO ENGINE (Uses your manually built image)
+  # 4. GO ENGINE
   go-engine:
     image: smartproctor-go
+    build: ./go-engine  # <--- THIS WAS MISSING
     container_name: proctor_go
     depends_on:
       - backend

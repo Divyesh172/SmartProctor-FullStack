@@ -1,0 +1,48 @@
+# ===============================
+# 1. Build Results (Never upload these)
+# ===============================
+/target/
+/build/
+.gradle/
+.mvn/
+wrapper/
+mvnw
+mvnw.cmd
+
+# ===============================
+# 2. Local Configuration & Secrets
+# ===============================
+# Ideally, you shouldn't commit application.properties if it has real passwords.
+# But for a college project, it is fine.
+# If you want to be pro, uncomment the next line:
+# src/main/resources/application.properties
+
+# ===============================
+# 3. IDE Files (Eclipse / IntelliJ / VS Code)
+# ===============================
+.idea/
+*.iws
+*.iml
+*.ipr
+.classpath
+.project
+.settings/
+.vscode/
+
+# ===============================
+# 4. OS Generated Files
+# ===============================
+.DS_Store
+Thumbs.db
+
+# ===============================
+# 5. Application Runtime Files
+# ===============================
+*.log
+*.pid
+
+# ===============================
+# 6. Uploaded Evidence (CRITICAL)
+# ===============================
+# Never upload the cheat photos to GitHub!
+/uploads/

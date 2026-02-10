@@ -19,9 +19,11 @@ const StudentRegister = () => {
             try {
                 const response = await api.get('/active');
                 setExams(response.data);
+
                 // Automatically select the first exam if available
                 if (response.data.length > 0) {
-                    setFormData(prev => ({ ...prev, examCode: response.data[0].code }));
+                    // FIX: Use .examCode instead of .code
+                    setFormData(prev => ({ ...prev, examCode: response.data[0].examCode }));
                 }
             } catch (err) {
                 console.error("Failed to load exams", err);
@@ -40,10 +42,12 @@ const StudentRegister = () => {
 
         try {
             const response = await api.post('/register', formData);
+            // Extract the ID from the response string "Student Registered with ID: 123"
             const idMatch = response.data.match(/\d+/);
             const studentId = idMatch ? idMatch[0] : null;
 
             if (studentId) {
+                // Wait 1 second so the user sees the success state, then move to Dashboard
                 setTimeout(() => {
                     navigate('/dashboard', { state: { studentId: studentId } });
                 }, 1000);
@@ -99,7 +103,7 @@ const StudentRegister = () => {
                         <label htmlFor="floatingEmail">Email Address</label>
                     </div>
 
-                    {/* NEW DROPDOWN MENU */}
+                    {/* DROPDOWN MENU */}
                     <div className="form-floating mb-4">
                         <select
                             className="form-control"
@@ -111,8 +115,9 @@ const StudentRegister = () => {
                         >
                             <option value="" disabled>Select an Exam...</option>
                             {exams.map(exam => (
-                                <option key={exam.code} value={exam.code}>
-                                    {exam.subject} ({exam.code})
+                                // FIX: Use .examCode and .subjectName matches Java Backend
+                                <option key={exam.examCode} value={exam.examCode}>
+                                    {exam.subjectName} ({exam.examCode})
                                 </option>
                             ))}
                         </select>

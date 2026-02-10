@@ -1,179 +1,237 @@
 import cv2
+import mediapipe as mp
 import numpy as np
 import requests
 import time
-import sys
+import threading
+import os
+import datetime
+from ultralytics import YOLO
 
-# --- THE UNIVERSAL IMPORT FIX ---
-# We try every possible way to load the AI library
-import mediapipe as mp
-try:
-    # Way 1: The Standard Way (Works on most PCs)
-    mp_face_mesh = mp.solutions.face_mesh
-except AttributeError:
-    try:
-        # Way 2: The "Explicit" Way (Forces Python to look inside)
-        import mediapipe.solutions.face_mesh
-        mp_face_mesh = mediapipe.solutions.face_mesh
-    except (ImportError, AttributeError):
-        # Way 3: The "Python Module" Way (For specific Linux setups)
-        from mediapipe.python.solutions import face_mesh as mp_face_mesh
-
-print("✅ AI Library Loaded Successfully.")
-# --------------------------------
-
-# --- 1. SETUP & CONFIGURATION ---
-print("--- SMART PROCTOR SETUP ---")
-
-# Ask for ID
-try:
-    user_input = input("Enter Session ID (Try 1 if unsure): ")
-    STUDENT_ID = int(user_input)
-except ValueError:
-    print("❌ Error: ID must be a number.")
-    sys.exit()
-
-JAVA_URL = f"http://localhost:8080/api/exam/report-cheat?studentId={STUDENT_ID}"
+# ==========================================
+# 1. CONFIGURATION & SETUP
+# ==========================================
+# Networking
+JAVA_BACKEND_URL = "http://localhost:8080/api/proctor/report"
 API_KEY = "PROCTOR_SECURE_123"
 
-# Sensitivity
-YAW_THRESHOLD = 20    # Left/Right angle
-PITCH_THRESHOLD = 15  # Up/Down angle
+# File Storage (CRITICAL: Must match Java's "file.upload-dir")
+# We assume the backend is running in a sibling folder.
+# Adjust this path if your folder structure is different.
+EVIDENCE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/uploads"))
 
-# --- 2. CONNECTION TEST ---
-def test_connection():
-    print(f"\n📡 Testing connection to: {JAVA_URL}...")
-    try:
-        headers = {'X-API-KEY': API_KEY}
-        response = requests.post(JAVA_URL, headers=headers)
+# Thresholds
+YAW_THRESHOLD = 25      # Degrees (Left/Right)
+PITCH_THRESHOLD = 15    # Degrees (Up/Down)
+MOUTH_OPEN_THRESHOLD = 25 # Pixels
+CONFIDENCE_THRESHOLD = 0.6 # AI Confidence
 
-        if response.status_code == 200:
-            print("✅ CONNECTION SUCCESSFUL! (Check Dashboard for 1 Strike)")
-            return True
-        elif response.status_code == 404:
-            print("❌ ERROR: 404 Not Found. The Student ID is wrong.")
-            print("   -> Try registering a new student to get a fresh ID.")
-        else:
-            print(f"❌ ERROR: Server returned status {response.status_code}")
-    except requests.exceptions.ConnectionError:
-        print("❌ CRITICAL ERROR: Connection Refused.")
-        print("   -> Make sure your Java backend is running!")
+# Initialize Models
+print("⏳ Loading AI Models... (This may take a moment)")
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5, refine_landmarks=True)
 
-    return False
+# Load YOLOv8 Nano (Smallest & Fastest) for Object Detection
+try:
+    phone_model = YOLO("yolov8n.pt")
+    print("✅ YOLO Model Loaded")
+except Exception as e:
+    print(f"⚠️ YOLO Model Failed: {e}. Object detection disabled.")
+    phone_model = None
 
-# Run the test
-if not test_connection():
-    print("\n⚠️ Connection failed. Starting camera anyway for testing...")
-    time.sleep(2)
-else:
-    print("\nStarting Camera in 2 seconds...")
-    time.sleep(2)
+# Ensure evidence folder exists
+if not os.path.exists(EVIDENCE_DIR):
+    os.makedirs(EVIDENCE_DIR)
+    print(f"📁 Created Evidence Directory: {EVIDENCE_DIR}")
 
-# --- 3. AI MONITORING LOOP ---
-# Initialize the AI
-face_mesh = mp_face_mesh.FaceMesh(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
-cap = cv2.VideoCapture(0)
+# ==========================================
+# 2. STATE MANAGEMENT
+# ==========================================
+class ProctorState:
+    def __init__(self):
+        self.student_id = None
+        self.last_report_time = 0
+        self.cooldown_seconds = 4.0
 
-print("--- MONITORING ACTIVE ---")
-print("Press 'q' to quit.")
+state = ProctorState()
 
-last_report_time = 0
+# ==========================================
+# 3. HELPER: EVIDENCE SAVER
+# ==========================================
+def save_evidence(frame, cheat_type):
+    """Saves the current frame to disk and returns the Web URL"""
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"evidence_{state.student_id}_{cheat_type}_{timestamp}.jpg"
+    filepath = os.path.join(EVIDENCE_DIR, filename)
 
-while cap.isOpened():
-    success, image = cap.read()
-    if not success:
-        print("Ignoring empty camera frame.")
-        continue
+    cv2.imwrite(filepath, frame)
 
-    # Flip the image (Mirror effect)
-    image = cv2.flip(image, 1)
-    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # Return the URL that the Frontend will use to display the image
+    # Matches Java's static resource handler: /uploads/**
+    return f"http://localhost:8080/uploads/{filename}"
 
-    # SCAN THE FACE
-    results = face_mesh.process(img_rgb)
+# ==========================================
+# 4. HELPER: API REPORTER
+# ==========================================
+def report_incident(cheat_type, description, confidence, frame):
+    current_time = time.time()
 
-    img_h, img_w, _ = image.shape
+    # Throttling
+    if current_time - state.last_report_time < state.cooldown_seconds:
+        return
+
+    print(f"📸 Capturing Evidence for: {cheat_type}")
+
+    # 1. Save Snapshot
+    snapshot_url = save_evidence(frame, cheat_type)
+
+    # 2. Prepare Payload
+    payload = {
+        "studentId": state.student_id,
+        "cheatType": cheat_type,
+        "description": description,
+        "confidenceScore": confidence,
+        "snapshotUrl": snapshot_url
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-KEY": API_KEY
+    }
+
+    # 3. Send Async
+    def send_async():
+        try:
+            response = requests.post(JAVA_BACKEND_URL, json=payload, headers=headers, timeout=5)
+            if response.status_code == 200:
+                print(f"✅ [SENT] {description} | Evidence: {snapshot_url}")
+                state.last_report_time = current_time
+            else:
+                print(f"⚠️ [FAIL] Server Error: {response.status_code}")
+        except Exception as e:
+            print(f"❌ [ERR] Connection Failed: {e}")
+
+    threading.Thread(target=send_async).start()
+
+# ==========================================
+# 5. CORE AI LOGIC
+# ==========================================
+def get_head_pose(landmarks, img_w, img_h):
     face_3d = []
     face_2d = []
+    key_points = [33, 263, 1, 61, 291, 199]
 
-    if results.multi_face_landmarks:
-        for face_landmarks in results.multi_face_landmarks:
-            for idx, lm in enumerate(face_landmarks.landmark):
-                # We only look at 6 key points (Nose, Chin, Eyes, Mouth)
-                if idx == 33 or idx == 263 or idx == 1 or idx == 61 or idx == 291 or idx == 199:
-                    if idx == 1:
-                        nose_2d = (lm.x * img_w, lm.y * img_h)
-                        nose_3d = (lm.x * img_w, lm.y * img_h, lm.z * 3000)
+    for idx, lm in enumerate(landmarks.landmark):
+        if idx in key_points:
+            x, y = int(lm.x * img_w), int(lm.y * img_h)
+            face_2d.append([x, y])
+            face_3d.append([x, y, lm.z])
 
-                    x, y = int(lm.x * img_w), int(lm.y * img_h)
-                    face_2d.append([x, y])
-                    face_3d.append([x, y, lm.z])
+    face_2d = np.array(face_2d, dtype=np.float64)
+    face_3d = np.array(face_3d, dtype=np.float64)
+    focal_length = 1 * img_w
+    cam_matrix = np.array([[focal_length, 0, img_h / 2], [0, focal_length, img_w / 2], [0, 0, 1]])
+    dist_matrix = np.zeros((4, 1), dtype=np.float64)
 
-            face_2d = np.array(face_2d, dtype=np.float64)
-            face_3d = np.array(face_3d, dtype=np.float64)
+    success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
+    rmat, jac = cv2.Rodrigues(rot_vec)
+    angles, mtxR, mtxQ, Qx, Qy, Qz = cv2.RQDecomp3x3(rmat)
 
-            # Camera Math (Simulating a real camera lens)
-            focal_length = 1 * img_w
-            cam_matrix = np.array([[focal_length, 0, img_h / 2],
-                                   [0, focal_length, img_w / 2],
-                                   [0, 0, 1]])
-            dist_matrix = np.zeros((4, 1), dtype=np.float64)
+    return angles[0] * 360, angles[1] * 360, (int(face_2d[2][0]), int(face_2d[2][1]))
 
-            # SOLVE THE PUZZLE (Calculate Angles)
-            success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
-            rmat, jac = cv2.Rodrigues(rot_vec)
+def check_mouth_open(landmarks, img_h):
+    upper = landmarks.landmark[13].y * img_h
+    lower = landmarks.landmark[14].y * img_h
+    return (lower - upper) > MOUTH_OPEN_THRESHOLD
 
-            # Get the angles (Yaw, Pitch, Roll)
-            try:
-                angles, mtxR, mtxQ, Qx, Qy, Qz = cv2.RQDecomp3x3(rmat)
-            except:
-                angles, mtxR, mtxQ, Qx, Qy, Qz = cv2.RQDecomp3x3(rmat)
+def detect_objects(frame):
+    """Detects Cell Phones using YOLO"""
+    if not phone_model: return False
 
-            x_angle = angles[0] * 360 # Pitch (Up/Down)
-            y_angle = angles[1] * 360 # Yaw (Left/Right)
+    results = phone_model(frame, verbose=False)
+    for r in results:
+        boxes = r.boxes
+        for box in boxes:
+            cls_id = int(box.cls[0])
+            label = phone_model.names[cls_id]
+            if label == 'cell phone' and box.conf[0] > 0.5:
+                return True
+    return False
 
-            # JUDGMENT TIME
-            text = "Focused"
-            color = (0, 255, 0)
-            is_cheating = False
+# ==========================================
+# 6. MAIN LOOP
+# ==========================================
+def main():
+    print("--- 🧠 SMART PROCTOR AI ENGINE v2.0 ---")
 
-            if y_angle < -YAW_THRESHOLD:
-                text = "Looking Right"
-                is_cheating = True
-            elif y_angle > YAW_THRESHOLD:
-                text = "Looking Left"
-                is_cheating = True
-            elif x_angle < -PITCH_THRESHOLD:
-                text = "Looking Down"
-                is_cheating = True
+    while True:
+        try:
+            sid = input("Enter Active Student ID: ")
+            state.student_id = int(sid)
+            break
+        except ValueError: pass
 
-            # REPORTING
-            if is_cheating:
+    cap = cv2.VideoCapture(0)
+
+    while cap.isOpened():
+        success, frame = cap.read()
+        if not success: continue
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(frame_rgb)
+
+        img_h, img_w, _ = frame.shape
+        status_text = "SAFE"
+        color = (0, 255, 0)
+
+        # --- 1. OBJECT DETECTION (Phone) ---
+        if detect_objects(frame):
+            status_text = "⚠️ PHONE DETECTED"
+            color = (0, 0, 255)
+            report_incident("MOBILE_PHONE_DETECTED", "Cell phone visible in frame", 0.95, frame)
+
+        # --- 2. FACE ANALYSIS ---
+        if results.multi_face_landmarks:
+            if len(results.multi_face_landmarks) > 1:
+                status_text = "⚠️ MULTIPLE PEOPLE"
                 color = (0, 0, 255)
-                current_time = time.time()
-                # Wait 3 seconds before reporting again
-                if current_time - last_report_time > 3:
-                    print(f"!!! CHEATING DETECTED ({text}) !!!")
-                    try:
-                        requests.post(JAVA_URL, headers={'X-API-KEY': API_KEY})
-                        last_report_time = current_time
-                    except:
-                        pass
+                report_incident("MULTIPLE_FACES_DETECTED", "Multiple faces detected", 1.0, frame)
+            else:
+                for face_landmarks in results.multi_face_landmarks:
+                    pitch, yaw, nose = get_head_pose(face_landmarks, img_w, img_h)
 
-            # DRAW ON SCREEN
-            cv2.putText(image, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 2)
+                    if yaw < -YAW_THRESHOLD:
+                        status_text = "LOOKING RIGHT"
+                        color = (0, 165, 255)
+                        report_incident("LOOKING_AWAY", "Looking Right", 0.8, frame)
+                    elif yaw > YAW_THRESHOLD:
+                        status_text = "LOOKING LEFT"
+                        color = (0, 165, 255)
+                        report_incident("LOOKING_AWAY", "Looking Left", 0.8, frame)
+                    elif pitch < -PITCH_THRESHOLD:
+                        status_text = "LOOKING DOWN"
+                        color = (0, 165, 255)
+                        report_incident("LOOKING_AWAY", "Looking Down", 0.7, frame)
+                    elif check_mouth_open(face_landmarks, img_h):
+                        status_text = "TALKING / MOUTH OPEN"
+                        color = (0, 0, 255)
+                        report_incident("SUSPICIOUS_AUDIO", "Mouth open / Talking", 0.6, frame)
 
-            # Draw the "Pinocchio Nose" line to show direction
-            p1 = (int(nose_2d[0]), int(nose_2d[1]))
-            p2 = (int(nose_2d[0] + y_angle * 10), int(nose_2d[1] - x_angle * 10))
-            cv2.line(image, p1, p2, (255, 0, 0), 3)
+                    # Draw Nose Line
+                    p2 = (int(nose[0] + yaw * 10), int(nose[1] - pitch * 10))
+                    cv2.line(frame, nose, p2, (255, 0, 0), 3)
+        else:
+            status_text = "⚠️ NO FACE"
+            color = (0, 0, 255)
+            report_incident("NO_FACE_DETECTED", "User left frame", 0.9, frame)
 
-    cv2.imshow('Smart Proctor Eye', image)
-    if cv2.waitKey(5) & 0xFF == ord('q'):
-        break
+        cv2.putText(frame, status_text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        cv2.imshow('Smart Proctor Eye', frame)
 
-cap.release()
-cv2.destroyAllWindows()
+        if cv2.waitKey(5) & 0xFF == 27: break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()

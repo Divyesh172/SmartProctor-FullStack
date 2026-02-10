@@ -1,15 +1,20 @@
-FROM golang:1.21-alpine
-
+# Build Stage
+FROM golang:1.21-alpine AS builder
 WORKDIR /app
-
-# Copy all files (including the fixed go.mod)
-COPY . .
-
-# Ensure dependencies are downloaded and linked
+COPY go.mod ./
 RUN go mod tidy
-RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o mobile-sentinel main.go
 
-# Build the binary
-RUN go build -o main .
+# Runtime Stage
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /app/mobile-sentinel .
 
-CMD ["./main"]
+# Environment Defaults
+ENV PORT=8081
+ENV JAVA_BACKEND_URL="http://localhost:8080"
+ENV PROCTOR_API_KEY="PROCTOR_SECURE_123"
+
+EXPOSE 8081
+CMD ["./mobile-sentinel"]

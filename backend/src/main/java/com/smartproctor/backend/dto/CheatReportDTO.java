@@ -1,44 +1,29 @@
 package com.smartproctor.backend.dto;
 
+import com.smartproctor.backend.model.CheatIncident.CheatType;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CheatReportDTO {
-    private String session_id; // Corresponds to Exam Code
-    private String reason;     // e.g., "LOOKING_AWAY"
-    private String timestamp;
-    private String confidence;
 
-    // Default Constructor
-    public CheatReportDTO() {}
+    @NotNull(message = "Student ID is required")
+    private Long studentId;
 
-    // Getters and Setters
-    public String getSession_id() {
-        return session_id;
-    }
+    @NotNull(message = "Cheat Type is required")
+    private CheatType cheatType; // e.g., MOBILE_PHONE_DETECTED
 
-    public void setSession_id(String session_id) {
-        this.session_id = session_id;
-    }
+    private String description; // "User looked away for 5 seconds"
 
-    public String getReason() {
-        return reason;
-    }
+    private double confidenceScore; // 0.85
 
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
-
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(String timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public String getConfidence() {
-        return confidence;
-    }
-
-    public void setConfidence(String confidence) {
-        this.confidence = confidence;
-    }
+    // The Python script uploads the image to Cloudinary/S3 first,
+    // then sends the URL here.
+    private String snapshotUrl;
 }
