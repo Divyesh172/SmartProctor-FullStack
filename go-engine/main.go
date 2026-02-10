@@ -47,7 +47,7 @@ type HandshakeRequest struct {
 // 3. Cheat Report Request to Java (Matches CheatReportDTO.java)
 type CheatRelayRequest struct {
 	StudentId       int64   `json:"studentId"`
-	CheatType       string  `json:"cheatType"` // e.g., "MOBILE_DETECTED"
+	CheatType       string  `json:"cheatType"` // e.g., "MOBILE_PHONE_DETECTED"
 	Description     string  `json:"description"`
 	ConfidenceScore float64 `json:"confidenceScore"`
 }
@@ -150,7 +150,8 @@ func handleHandshake(conn *websocket.Conn, code string) int64 {
 		if id, ok := result["studentId"].(float64); ok {
 			return int64(id)
 		}
-		return 1 // Fallback if Java doesn't send ID (Needs Java update if critical)
+		// Fallback for demo purposes if Java doesn't return ID immediately
+		return 1
 	} else {
 		sendJSON(conn, "ERROR", "Invalid Code")
 		return 0
@@ -160,16 +161,18 @@ func handleHandshake(conn *websocket.Conn, code string) int64 {
 func handleCheatAlert(conn *websocket.Conn, studentId int64, payloadStr string) {
 	url := JavaBaseURL + "/api/proctor/report"
 
-	// Parse the raw payload from phone
+	// Parse the raw payload from phone (it might say "PHONE_MOVED" or "GYRO_SPIKE")
 	var rawData map[string]interface{}
 	json.Unmarshal([]byte(payloadStr), &rawData)
 
 	// Construct DTO for Java
+	// CRITICAL FIX: We force the CheatType to be "MOBILE_PHONE_DETECTED"
+	// regardless of what the phone sends. This ensures Java's Enum parser accepts it.
 	report := CheatRelayRequest{
 		StudentId:       studentId,
-		CheatType:       rawData["type"].(string), // e.g. "PHONE_MOVED"
-		Description:     "Detected by Mobile Sentinel",
-		ConfidenceScore: 1.0,
+		CheatType:       "MOBILE_PHONE_DETECTED",
+		Description:     "Suspicious device movement detected by Sentinel",
+		ConfidenceScore: 0.95,
 	}
 
 	reqBody, _ := json.Marshal(report)
@@ -179,7 +182,7 @@ func handleCheatAlert(conn *websocket.Conn, studentId int64, payloadStr string) 
 		log.Printf("🚩 Cheat Alert Forwarded: Student %d", studentId)
 		sendJSON(conn, "ACK", "Report Logged")
 	} else {
-		log.Println("❌ Failed to log cheat to Java")
+		log.Printf("❌ Failed to log cheat to Java. Status: %d", resp.StatusCode)
 	}
 }
 
@@ -204,4 +207,10 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// Helper: Health Check
+func healthCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Go Sentinel is Active"))
 }
