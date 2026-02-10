@@ -1,131 +1,418 @@
-/* 1. Deep Tech Background */
+/* =========================================
+   1. GLOBAL RESET & TYPOGRAPHY
+   ========================================= */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #2d1b69);
-background-size: 400% 400%;
-animation: gradientBG 15s ease infinite;
-min-height: 100vh;
-display: flex;
-align-items: center;
-justify-content: center;
-font-family: 'Poppins', sans-serif;
-color: white;
-}
-@keyframes gradientBG {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f7f6;
+  color: #333;
+  line-height: 1.6;
 }
 
-/* 2. Glassmorphism Card */
-.glass-card {
-  background: rgba(255, 255, 255, 0.05); /* Very transparent white */
-  backdrop-filter: blur(10px); /* The "Frosted" blur */
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle white border */
-  border-radius: 24px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+button {
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* 3. Modern Inputs */
-.form-control {
-  background: rgba(0, 0, 0, 0.2) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: white !important;
+/* =========================================
+   2. HOME PAGE (LANDING)
+   ========================================= */
+.home-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+  color: white;
+  padding: 20px;
 }
 
-.form-control:focus {
-  background: rgba(0, 0, 0, 0.4) !important;
-  border-color: #4f46e5 !important; /* Indigo Focus */
-  box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25) !important;
-  color: white !important;
+.hero {
+  text-align: center;
+  margin-bottom: 50px;
+  animation: fadeInDown 1s ease-out;
 }
 
-/* Floating Label Text Color fix */
-.form-floating > label {
-  color: rgba(255, 255, 255, 0.6) !important;
+.hero h1 {
+  font-size: 3.5rem;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
-.form-floating > .form-control:focus ~ label,
-.form-floating > .form-control:not(:placeholder-shown) ~ label {
-  color: rgba(255, 255, 255, 0.8) !important;
+.hero-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  padding: 5px 15px;
+  border-radius: 20px;
+  margin-top: 15px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255,255,255,0.3);
 }
 
-/* 4. The "Laser" Button */
-.btn-primary {
-  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
-  border: none;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  z-index: 1;
+.role-selection {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
+
+.role-card {
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  width: 300px;
+  padding: 40px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.role-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.card-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+
+/* =========================================
+   3. AUTHENTICATION PAGES (LOGIN/REGISTER)
+   ========================================= */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #ecf0f1;
+}
+
+.student-theme {
+  background: linear-gradient(135deg, #667db6, #0082c8, #0082c8, #667db6);
+}
+
+.auth-box {
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
   width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: 0.5s;
-  z-index: -1;
+  max-width: 400px;
+  text-align: center;
 }
 
-.btn-primary:hover::before {
-  left: 100%;
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
 }
 
-/* 5. Smooth Fade In */
-.fade-in {
-  animation: fadeIn 0.8s ease-out forwards;
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1rem;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+.btn-block {
+  width: 100%;
+  padding: 12px;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  margin-top: 10px;
+}
+
+.btn-block:hover {
+  background-color: #34495e;
+}
+
+.error-banner {
+  background-color: #ffdddd;
+  color: #d8000c;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 5px;
+  border: 1px solid #ffbaba;
+}
+
+.link-text {
+  color: #3498db;
+  margin-top: 15px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* =========================================
+   4. PROFESSOR DASHBOARD
+   ========================================= */
+.dashboard-container {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #2c3e50;
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar button {
+  background: none;
+  border: none;
+  color: #bdc3c7;
+  padding: 15px;
+  text-align: left;
+  width: 100%;
+  font-size: 1rem;
+}
+
+.sidebar button:hover, .sidebar button.active {
+  color: white;
+  background-color: #34495e;
+  border-radius: 5px;
+}
+
+.main-content {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  background-color: #f4f7f6;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.exam-card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.exam-code-box {
+  background: #ecf0f1;
+  padding: 5px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  margin: 10px 0;
+  font-family: monospace;
+}
+
+.create-exam-form {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.question-builder {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 1px solid #eee;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin: 15px 0;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* =========================================
+   5. EXAM DASHBOARD (STUDENT INTERFACE)
+   ========================================= */
+.exam-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #fff;
+}
+
+.exam-header {
+  background-color: #2c3e50;
+  color: white;
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timer-box {
+  font-size: 1.5rem;
+  font-weight: bold;
+  background: rgba(0,0,0,0.2);
+  padding: 5px 15px;
+  border-radius: 5px;
+}
+
+.exam-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.question-area {
+  flex: 3;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.question-card {
+  background: white;
+  padding: 30px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.option-label {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.option-label:hover {
+  background-color: #f8f9fa;
+}
+
+.option-label.selected {
+  border-color: #3498db;
+  background-color: #ebf5fb;
+}
+
+.proctor-sidebar {
+  flex: 1;
+  background: #ecf0f1;
+  padding: 20px;
+  border-left: 1px solid #bdc3c7;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.webcam-container {
+  background: black;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.webcam-feed {
+  width: 100%;
+  display: block;
+}
+
+.rec-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: white;
+  background: red;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.pairing-box {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px dashed #3498db;
+}
+
+.code-display {
+  font-size: 2rem;
+  font-weight: bold;
+  letter-spacing: 5px;
+  color: #2c3e50;
+  margin: 10px 0;
+}
+
+/* =========================================
+   6. UTILITIES & ANIMATIONS
+   ========================================= */
+.btn-primary {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+}
+
+.btn-secondary {
+  background-color: #95a5a6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+}
+
+.btn-danger {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-select.form-control {
-  background-color: rgba(0, 0, 0, 0.2) !important; /* Dark Glass */
-  color: white !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-
-  /* Remove default arrow so we can add our own or style it */
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-
-  /* Add a custom white arrow */
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
-  background-repeat: no-repeat !important;
-  background-position: right 0.75rem center !important;
-  background-size: 16px 12px !important;
-}
-
-/* 2. The Focus State (Glow) */
-select.form-control:focus {
-  background-color: rgba(0, 0, 0, 0.4) !important;
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25) !important;
-}
-
-/* 3. The Dropdown List Options (When you click it) */
-/* Note: We cannot use "Glass" here because browsers require solid colors for options */
-select.form-control option {
-  background-color: #1e293b; /* Deep Dark Blue */
-  color: white;
-  padding: 10px;
-}
-
-/* 4. Fix Floating Label Color for Select */
-.form-floating > select {
-  padding-top: 1.625rem;
-  padding-bottom: 0.625rem;
+/* Responsive Tweaks */
+@media (max-width: 768px) {
+  .exam-layout {
+    flex-direction: column-reverse;
+  }
+  .proctor-sidebar {
+    height: 200px;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .webcam-container {
+    width: 150px;
+  }
 }

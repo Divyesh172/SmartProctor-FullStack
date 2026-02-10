@@ -1,13 +1,10 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.jsx'
-import './App.css' // Your gradient background
-import { BrowserRouter } from 'react-router-dom'; // <--- MUST BE HERE
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.jsx';
+import './index.css'; // Global base styles
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-        <BrowserRouter> {/* <--- MUST WRAP APP */}
-            <App />
-        </BrowserRouter>
+        <App />
     </React.StrictMode>,
-)
+);
